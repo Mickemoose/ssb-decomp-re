@@ -372,6 +372,69 @@ void portAudioRestoreFGMs(u16 saved)
 {
     D_8009EDD0_406D0.fgm_ucode_count = saved;
 }
+
+extern void n_alSynStopVoice(N_ALVoice *v);
+extern void n_alSynFreeVoice(N_ALVoice *v);
+
+/* Force-stop every active FGM voice and detach every fighter's cached
+ * EE0C ptr. Called from ftParamStopAllFightersLoopSFX on pause-init.
+ *
+ * On N64 the looping voice winds down naturally during pause because
+ * the audio thread is gated by osRecvMesg(&sSYAudioSPTaskMesgQueue) —
+ * with the SP busy serving the pause menu, the FGM bytecode tick stops
+ * advancing and the wavetable loop region stops getting re-armed. The
+ * port's audio thread runs on the VI tick alone, no SP gate, so the
+ * bytecode keeps cycling regardless of game state.
+ *
+ * The "polite" stop signal (set EE0C->unk2A = 2 via func_80026738_27338)
+ * isn't reliable here: it's looked up via fp->p_loop_sfx → siz34 →
+ * unk_0x28, and that EE0C ptr goes stale across the bytecode's natural
+ * case-2→0→free cycle. By the time pause-init runs, the audible voice
+ * is on a *different* EE0C than the one cached in siz34, so writing
+ * unk2A=2 on the cached ptr lands on a freed slot the FGM tick will
+ * never see again.
+ *
+ * Walking unk_alsound_0x3C directly hits whichever EE0C is currently
+ * holding the audible voice. n_alSynStopVoice + n_alSynFreeVoice
+ * tears the voice down at the synthesizer level, bypassing the
+ * envelope-mixer fade-to-zero path. The pause beep
+ * (func_800269C0_275C0(nSYAudioFGMGamePause)) is allocated *after*
+ * this purge on a fresh slot, so it plays normally. BGM lives on the
+ * unrelated CSPlayer pipeline and is untouched. */
+void portAudioPurgeFGMs(void)
+{
+    u32 sp = osSetIntMask(1);
+    ALWhatever8009EE0C *node = D_8009EDD0_406D0.unk_alsound_0x3C;
+    while (node != NULL)
+    {
+        ALWhatever8009EE0C *next = (ALWhatever8009EE0C*)node->next;
+        N_ALVoice *v = (N_ALVoice *)&node->voice;
+        if (v->pvoice != NULL)
+        {
+            n_alSynStopVoice(v);
+            n_alSynFreeVoice(v);
+        }
+        node->unk28 = 0;
+        node->unk2A = 0;
+        node->unk48 = 0;
+        node = next;
+    }
+    {
+        /* NULL each siz34's cached EE0C ptr so the next bytecode tick
+         * (or another path that reads unk_0x28) doesn't dereference a
+         * just-freed node. ftParamStopAllFightersLoopSFX already
+         * detached fighter fp->p_loop_sfx; this covers in-flight
+         * non-loop FGM siz34 entries that were referencing the same
+         * EE0C nodes. */
+        ALWhatever8009EDD0_siz34 *s = D_8009EDD0_406D0.unk_alsound_0x40;
+        while (s != NULL)
+        {
+            s->unkALWhatever8009EDD0_siz34_0x28 = NULL;
+            s = s->next;
+        }
+    }
+    osSetIntMask(sp);
+}
 #endif
 
 f32 randFloat1(void);

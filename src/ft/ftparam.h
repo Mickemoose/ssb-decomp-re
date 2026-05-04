@@ -28,6 +28,9 @@ extern void ftParamPlayVoice(FTStruct *fp, u16 voice_id);
 extern void ftParamStopVoice(FTStruct *fp);
 extern void ftParamPlayLoopSFX(FTStruct *fp, u16 sfx_id);
 extern void ftParamStopLoopSFX(FTStruct *fp);
+#ifdef PORT
+extern void ftParamStopAllFightersLoopSFX(void);
+#endif
 extern void ftParamStopVoiceRunProcDamage(GObj *fighter_gobj);
 extern void ftParamMoveDLLink(GObj *fighter_gobj, u8 dl_link);
 extern void ftParamUpdateAnimKeys(GObj *fighter_gobj);

@@ -360,6 +360,43 @@ void ftParamStopLoopSFX(FTStruct *fp)
     fp->loop_sfx_id = 0;
 }
 
+#ifdef PORT
+extern void portAudioPurgeFGMs(void);
+
+/* PORT: Silence active loop SFX (Samus's charge whoosh, etc.) on
+ * pause-init. The IDO/N64 pause path does not call any "stop active
+ * loops" routine — it relies on the audio thread being gated each
+ * frame by osRecvMesg(&sSYAudioSPTaskMesgQueue), which stops landing
+ * during pause because the SP is busy with the pause menu. With the
+ * FGM bytecode interpreter blocked, the looping voice naturally winds
+ * down. The port's audio thread runs on the VI tick alone, no SP
+ * gate, so the bytecode keeps cycling and the voice keeps re-arming.
+ *
+ * Per-fighter ftParamStopLoopSFX is unreliable on the port because
+ * siz34->unk_0x28 (the EE0C ptr cached when the bytecode allocated a
+ * voice) goes stale across the natural case-2→0→free cycle: by the
+ * time pause-init reads it, the EE0C may have been freed and a new
+ * one allocated for the next note, and the voice we want to mute
+ * lives on a different EE0C we never touched. portAudioPurgeFGMs
+ * (in n_env.c) walks unk_alsound_0x3C — the live FGM EE0C list —
+ * directly and calls n_alSynStopVoice + n_alSynFreeVoice on every
+ * voice on it, then NULLs out every siz34's unk_0x28. The pause beep
+ * allocates AFTER this purge on a fresh slot. */
+void ftParamStopAllFightersLoopSFX(void)
+{
+    GObj *fighter_gobj = gGCCommonLinks[nGCCommonLinkIDFighter];
+
+    while (fighter_gobj != NULL)
+    {
+        FTStruct *fp = ftGetStruct(fighter_gobj);
+        fp->p_loop_sfx = NULL;
+        fp->loop_sfx_id = 0;
+        fighter_gobj = fighter_gobj->link_next;
+    }
+    portAudioPurgeFGMs();
+}
+#endif
+
 // 0x800E823C
 void ftParamStopVoiceRunProcDamage(GObj *fighter_gobj)
 {

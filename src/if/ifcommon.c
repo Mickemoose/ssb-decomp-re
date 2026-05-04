@@ -3037,6 +3037,16 @@ void ifCommonBattlePauseInitInterface(s32 player)
 
     sIFCommonBattlePausePlayer = player;
 
+#ifdef PORT
+    /* Silence per-fighter loop SFX (Samus's charge whoosh, etc.) before
+     * the existing audio calls. The IDO/N64 pause path doesn't stop
+     * these explicitly — it relies on the audio thread descheduling
+     * because the SP is busy with the pause menu. The port's audio
+     * thread runs continuously, so the FGM bytecode keeps cycling and
+     * the looping voice keeps re-arming. See
+     * docs/bugs/samus_charge_loop_sfx_pause_leak_2026-05-03.md. */
+    ftParamStopAllFightersLoopSFX();
+#endif
     func_80026594_27194();
     func_800269C0_275C0(nSYAudioFGMGamePause);
     syAudioSetBGMVolume(0, 0x3C00);
