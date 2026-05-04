@@ -14,6 +14,12 @@
 #else
 #endif
 
+// MSVC fell through the _MSC_VER branch above; <vadefs.h> already
+// defined va_list/start/end/arg/copy via __crt_va_*. Skip both the
+// GCC-builtin branch (no __builtin_va_list on MSVC → C2061) and the
+// IDO `else` branch (would re-`typedef char* va_list` after
+// vadefs.h already typedef'd it).
+#ifndef _MSC_VER
 // When not building with IDO, use the builtin vaarg macros for portability.
 #ifndef __sgi
 #define va_list __builtin_va_list
@@ -63,8 +69,7 @@ typedef char* va_list;
 				  : __va_stack_arg(list, mode))))[-1]
 #define va_end(__list)
 
-#endif
-#ifdef PORT
-#endif /* _MSC_VER */
-#endif
-#endif
+#endif /* __sgi */
+#endif /* !_MSC_VER */
+#endif /* PORT */
+#endif /* STDARG_H */

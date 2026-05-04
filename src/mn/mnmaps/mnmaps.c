@@ -1066,6 +1066,21 @@ GObj* mnMapsMakePreviewWallpaper(s32 gkind)
 		// If not Random, check if Training Mode
 		if (sMNMapsIsTrainingMode == TRUE)
 		{
+			/* PORT: hoist the #ifdef-PORT conditional values out of the
+			 * lbRelocGetFileData macro argument list. MSVC's preprocessor
+			 * (both legacy and /Zc:preprocessor) rejects `#` directives
+			 * inside function-like macro arg lists with C2059 (the C
+			 * standard says it's undefined behavior; clang/gcc accept
+			 * it leniently). */
+#ifdef PORT
+			void *training_wallpaper_arg =
+				(void*) ((uintptr_t)PORT_RESOLVE(sMNMapsGroundInfo->wallpaper) - dMNMapsWallpaperOffsets[gkind]);
+			intptr_t training_blue_offset = llGRWallpaperTrainingBlueSprite;
+#else
+			void *training_wallpaper_arg =
+				(void*) ((uintptr_t)sMNMapsGroundInfo->wallpaper - dMNMapsWallpaperOffsets[gkind]);
+			intptr_t training_blue_offset = (intptr_t)&llGRWallpaperTrainingBlueSprite;
+#endif
 			// If Training Mode, use Smash logo bg
 			sobj = lbCommonMakeSObjForGObj
 			(
@@ -1076,17 +1091,9 @@ GObj* mnMapsMakePreviewWallpaper(s32 gkind)
 					lbRelocGetForceExternHeapFile
 					(
 						dMNMapsTrainingModeFileInfos[dMNMapsTrainingModeWallpaperIDs[gkind]].file_id,
-#ifdef PORT
-						(void*) ((uintptr_t)PORT_RESOLVE(sMNMapsGroundInfo->wallpaper) - dMNMapsWallpaperOffsets[gkind])
-#else
-						(void*) ((uintptr_t)sMNMapsGroundInfo->wallpaper - dMNMapsWallpaperOffsets[gkind])
-#endif
+						training_wallpaper_arg
 					),
-#ifdef PORT
-					llGRWallpaperTrainingBlueSprite
-#else
-					&llGRWallpaperTrainingBlueSprite
-#endif
+					training_blue_offset
 				)
 			);
 		}
