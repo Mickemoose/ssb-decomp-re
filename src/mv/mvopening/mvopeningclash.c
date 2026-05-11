@@ -359,29 +359,9 @@ void mvOpeningClashFuncRun(GObj *gobj)
         if (sMVOpeningClashTotalTimeTics == 144)
         {
             mvOpeningClashMakeVoid();
-#ifdef PORT
-            /* Same trapezoid issue as OpeningRun (scene 38): the void/impact-
-             * flash mesh's depth-spanning geometry foreshortens into a clean
-             * rectangle in 4:3 but exposes a perspective trapezoid under
-             * widescreen's wider frustum. Tighten the GPU scissor to the
-             * centered 4:3 sub-region for the 16-tic flash window (tic 144
-             * → 160 scene transition). The 26-frame bitmap animation plays
-             * at the 4:3 framing it was authored for, inside the wider
-             * widescreen window. */
-            {
-                extern void GfxSetTight4_3ScissorWindow(int active);
-                GfxSetTight4_3ScissorWindow(1);
-            }
-#endif
         }
         if (sMVOpeningClashTotalTimeTics == 160)
         {
-#ifdef PORT
-            {
-                extern void GfxSetTight4_3ScissorWindow(int active);
-                GfxSetTight4_3ScissorWindow(0);
-            }
-#endif
             gSCManagerSceneData.scene_prev = gSCManagerSceneData.scene_curr;
             gSCManagerSceneData.scene_curr = nSCKindOpeningNewcomers;
 
