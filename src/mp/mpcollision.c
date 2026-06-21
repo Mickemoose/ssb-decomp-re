@@ -5,6 +5,8 @@
 #include <sys/audio.h>
 #include <sys/debug.h>
 
+#include "stage_registry.h"
+
 #ifdef PORT
 extern void portFixupStructU16(void *base, unsigned int byte_offset, unsigned int num_words);
 extern void portFixupStructU32(void *base, unsigned int byte_offset, unsigned int num_words);
@@ -4109,7 +4111,28 @@ void mpCollisionFixGroundDataLayout(MPGroundData *ground_data)
 void mpCollisionInitGroundData(void)
 {
     MPGeometryData *gdata;
+#ifdef PORT
+    s32 gkind = gSCManagerBattleState->gkind;
+    intptr_t file_id = port_stage_map_file_id(gkind);
+    intptr_t offset = port_stage_map_header_offset(gkind);
 
+    gMPCollisionGroundData = lbRelocGetFileData
+    (
+        MPGroundData*,
+        lbRelocGetExternHeapFile
+        (
+            file_id,
+            syTaskmanMalloc(lbRelocGetFileSize(file_id), 0x10)
+        ),
+        offset
+    );
+    port_log("[ground] InitGroundData scene=%d gkind=%d file_id=%d offset=0x%x gd=%p",
+        gSCManagerSceneData.scene_curr,
+        gkind,
+        (int)file_id,
+        (unsigned)offset,
+        (void*)gMPCollisionGroundData);
+#else
     gMPCollisionGroundData = lbRelocGetFileData
     (
         MPGroundData*,
@@ -4124,13 +4147,6 @@ void mpCollisionInitGroundData(void)
         ),
         dMPCollisionGroundFileInfos[gSCManagerBattleState->gkind].offset
     );
-#ifdef PORT
-    port_log("[ground] InitGroundData scene=%d gkind=%d file_id=%d offset=0x%x gd=%p",
-        gSCManagerSceneData.scene_curr,
-        gSCManagerBattleState->gkind,
-        dMPCollisionGroundFileInfos[gSCManagerBattleState->gkind].file_id,
-        (unsigned)dMPCollisionGroundFileInfos[gSCManagerBattleState->gkind].offset,
-        (void*)gMPCollisionGroundData);
 #endif
 
     gMPCollisionGeometry = (MPGeometryData*)PORT_RESOLVE(gMPCollisionGroundData->map_geometry);

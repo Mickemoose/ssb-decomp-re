@@ -137,9 +137,9 @@ void ftCommonCapturePulledProcCapture(GObj *fighter_gobj, GObj *capture_gobj)
     this_fp->lr = -capture_fp->lr;
 
 #ifdef PORT
-    /* SR CustomGrabAction.asm capture_action_override_/capture_position_fix_:
-     * a grabber with a custom capture action (Wario = ThrownDK) puts the grabbed
-     * opponent into that action instead of CapturePulled, and uses the Thrown
+    /* Custom capture-action override / capture-position fix:
+     * a grabber with a custom capture action (e.g. a synth using ThrownDK) puts
+     * the grabbed opponent into that action instead of CapturePulled, and uses the Thrown
      * physics path (ftCommonThrownProcPhysics) for the frame-1 position instead
      * of the CapturePulled one. Keyed off the grabber's fkind through the port
      * registry; 0 = vanilla behavior for every other fighter. */
@@ -152,6 +152,18 @@ void ftCommonCapturePulledProcCapture(GObj *fighter_gobj, GObj *capture_gobj)
             ftMainPlayAnimEventsAll(fighter_gobj);
 
             this_fp->status_vars.common.capture.is_goto_pulled_wait = FALSE;
+
+            /* ftCommonCaptureShoulderedSetStatus seeds the struggle timer on entry
+             * to Shouldered (0xB8); this raw ftMainSetStatus shortcut does not (the
+             * status has no proc_init), so without this breakout_wait stays 0 and the
+             * next-frame Shouldered interrupt frees the victim on frame ~1 for any
+             * grabber whose dk_interrupt isn't an unconditional suppress (e.g. a
+             * grabber that suppresses ThrowF only). Seed value copied verbatim from ftCommonCaptureShoulderedSetStatus. */
+#if defined(REGION_US)
+            ftCommonCaptureTrappedInitBreakoutVars(this_fp, (this_fp->percent_damage * 0.08F) + 14.0F);
+#else
+            ftCommonCaptureTrappedInitBreakoutVars(this_fp, (this_fp->percent_damage * 0.08F) + 20.0F);
+#endif
 
             ftParamSetCaptureImmuneMask(this_fp, FTCATCHKIND_MASK_ALL);
             ftParamMakeRumble(this_fp, 9, 0);

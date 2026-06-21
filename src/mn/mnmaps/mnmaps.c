@@ -282,9 +282,14 @@ s32 dMNMapsPageGkinds[nMNMapsPageCount][nMNMapsSlotCount] =
 		nGRKindCastle, nGRKindJungle, nGRKindHyrule, nGRKindZebes, nGRKindInishie,
 		nGRKindYoster, nGRKindPupupu, nGRKindSector, nGRKindYamabuki, nMNMapsRandomGKind,
 	},
-	// Page 1 — port expansion. Three playable stages from the 1P/Master-Hand pool:
-	//   row 1 (slots 0..4): Final Destination, Metal Cavern, Battlefield
+	// Page 1 — port expansion. Playable stages from the 1P/Master-Hand pool:
+	//   row 1 (slots 0..2): Final Destination, Metal Cavern, Battlefield
 	//   row 2 (slots 5..9): empty (page-jump fallback finds row-1 entries instead)
+	//
+	// SYNTH stage cells (e.g. a custom stage) are NOT hardcoded here: a loose
+	// stage mod supplies its own (page,cell) via the port stage registry, and
+	// mnMapsApplyRegistryLayout() overlays it onto this grid at scene setup, so
+	// the base game bakes no synth-stage identity or placement.
 	{
 		nGRKindLast,       nGRKindMetal,      nGRKindZako,      nMNMapsEmptyGKind, nMNMapsEmptyGKind,
 		nMNMapsEmptyGKind, nMNMapsEmptyGKind, nMNMapsEmptyGKind, nMNMapsEmptyGKind, nMNMapsEmptyGKind,
@@ -293,6 +298,61 @@ s32 dMNMapsPageGkinds[nMNMapsPageCount][nMNMapsSlotCount] =
 
 static SObj *sMNMapsStageSelectTextSObj = NULL; // Tracks the cursive image
 static GObj *sMNMapsMusicSelectTextGObj = NULL; // Tracks our new text
+
+/* Overlay registry-registered synth stage cells onto the static page grid. A
+ * loose stage mod sets its (page,cell) in stage_info.yaml -> the port stage
+ * registry; this writes those gkinds into dMNMapsPageGkinds at scene setup so the
+ * cell appears with NO per-stage edit here. Vanilla rows return page/cell = -1
+ * and are skipped. Idempotent (re-applying writes the same values). gkind is a
+ * u8 so the registry can't hold an index past 255. */
+extern int port_stage_page(int gkind);
+extern int port_stage_cell(int gkind);
+extern const char *port_stage_name(int gkind);
+
+/* Is gkind already placed somewhere on the grid? */
+static s32 mnMapsGridHas(s32 gkind)
+{
+	s32 p, s;
+	for (p = 0; p < nMNMapsPageCount; p++)
+		for (s = 0; s < nMNMapsSlotCount; s++)
+			if (dMNMapsPageGkinds[p][s] == gkind) return TRUE;
+	return FALSE;
+}
+
+static void mnMapsApplyRegistryLayout(void)
+{
+	s32 gkind, p, s;
+	for (gkind = 0; gkind < 256; gkind++)
+	{
+		if (port_stage_name(gkind) == NULL) continue;   /* not a registered synth stage */
+		if (mnMapsGridHas(gkind)) continue;             /* already placed (idempotent) */
+
+		/* Explicit (page,cell) only if a stage opted into one; otherwise -1. */
+		p = port_stage_page(gkind);
+		s = port_stage_cell(gkind);
+		if (p >= 0 && p < nMNMapsPageCount && s >= 0 && s < nMNMapsSlotCount)
+		{
+			dMNMapsPageGkinds[p][s] = gkind;
+			continue;
+		}
+		/* Auto-place into the next empty cell (row-major) -- the modder doesn't
+		 * choose a grid slot, same as the character mod auto-appends synth fighters. */
+		for (p = 0; p < nMNMapsPageCount; p++)
+		{
+			s32 done = FALSE;
+			for (s = 0; s < nMNMapsSlotCount; s++)
+			{
+				if (dMNMapsPageGkinds[p][s] == nMNMapsEmptyGKind)
+				{
+					dMNMapsPageGkinds[p][s] = gkind;
+					done = TRUE;
+					break;
+				}
+			}
+			if (done) break;
+		}
+	}
+}
 #endif
 
 // // // // // // // // // // // //
@@ -421,7 +481,7 @@ sb32 mnMapsCheckLocked(s32 gkind)
 		}
 		else return TRUE;
 	}
-	else if (sMNMapsIsTrainingMode != FALSE && ((gkind == nGRKindLast) || (gkind == nGRKindMetal) || (gkind == nGRKindZako)))
+	else if (sMNMapsIsTrainingMode != FALSE && ((gkind == nGRKindLast) || (gkind == nGRKindMetal) || (gkind == nGRKindZako) || (gkind == nGRKindPupupuSmall)))
 	{
 		// Port-introduced stages hide from the Training Mode CSS — the training
 		// wallpaper paths (Smash-logo overlay) aren't wired up for them yet.
@@ -1121,6 +1181,17 @@ void mnMapsMakeName(GObj *gobj, s32 gkind)
 		mnMapsMakeNamePortText(gobj, "BATTLEFIELD");
 		return;
 	default:
+		// Synth-stage cell: any gkind past the vanilla VS range has no entry in
+		// the offsets[] / position tables below. Its name comes from the port
+		// stage registry (a loose stage mod's stage_info.yaml `name:`); fall back
+		// to a neutral label if a synth cell registered no name.
+		if (gkind > nGRKindBattleEnd)
+		{
+			extern const char *port_stage_name(int gkind);
+			const char *nm = port_stage_name(gkind);
+			mnMapsMakeNamePortText(gobj, (nm != NULL) ? nm : "STAGE");
+			return;
+		}
 		break;
 	}
 #endif
@@ -1358,14 +1429,16 @@ void mnMapsMakeEmblem(GObj *gobj, s32 gkind)
 		sobj->sprite.blue = 0x00;
 	}
 #ifdef PORT
-	else if ((gkind == nGRKindLast) || (gkind == nGRKindMetal) || (gkind == nGRKindZako))
+	else if (gkind > nGRKindBattleEnd)
 	{
-		// Port-introduced stages: emblem deliberately blank for now — every
-		// attempt to render either a port-derived sprite or a ROM fallback
-		// has hit format-edge bugs (TMEM overflow, IA4 bit-layout mismatch,
-		// multi-bitmap stride). Skip emblem creation entirely; the wooden
-		// circle behind it still renders. mnMapsSetLogoPosition is also
-		// skipped because there's no SObj to position.
+		// Port-introduced / synth stages (FD, Metal, Battlefield, a custom stage, and
+		// any future stage-mod cell): emblem deliberately blank for now —
+		// every attempt to render either a port-derived sprite or a ROM
+		// fallback has hit format-edge bugs (TMEM overflow, IA4 bit-layout
+		// mismatch, multi-bitmap stride), and the 9-wide offsets[] table below
+		// has no entry for these gkinds anyway. Skip emblem creation entirely;
+		// the wooden circle behind it still renders. mnMapsSetLogoPosition is
+		// also skipped because there's no SObj to position.
 		return;
 	}
 #endif
@@ -1507,6 +1580,25 @@ void mnMapsMakeArrows(void)
 // 0x80132B84
 void mnMapsLoadMapFile(s32 gkind, void *heap)
 {
+#ifdef PORT
+	// Synth-stage cell guard: dMNMapsFileInfos[] only covers the vanilla gkind
+	// range (Castle..Last). A cell whose gkind is past that range sources its
+	// preview map file from the per-gkind stage registry instead (a synth stage
+	// shadowing an existing stage's geometry resolves to that stage's file).
+	extern intptr_t port_stage_map_file_id(int gkind);
+	extern intptr_t port_stage_map_header_offset(int gkind);
+	if (gkind < 0 || gkind >= (s32) ARRAY_COUNT(dMNMapsFileInfos))
+	{
+		sMNMapsGroundInfo = lbRelocGetFileData
+		(
+			MPGroundData*,
+			lbRelocGetForceExternHeapFile(port_stage_map_file_id(gkind), heap),
+			port_stage_map_header_offset(gkind)
+		);
+		mpCollisionFixGroundDataLayout(sMNMapsGroundInfo);
+		return;
+	}
+#endif
 	sMNMapsGroundInfo = lbRelocGetFileData
 	(
 		MPGroundData*,
@@ -2062,6 +2154,14 @@ void mnMapsSetPreviewCameraPosition(CObj *cobj, s32 gkind)
 	{
 		gkind = nGRKindCastle;
 	}
+#ifdef PORT
+	// Synth-stage cell guard: positions[] spans only the vanilla gkind range
+	// (Castle..Last); clamp a cell whose gkind is past it to Sector Z's framing.
+	if (gkind < 0 || gkind >= (s32) ARRAY_COUNT(positions))
+	{
+		gkind = nGRKindSector;
+	}
+#endif
 	cobj->vec.eye.x = -3000.0F;
 	cobj->vec.eye.y = 3000.0F;
 	cobj->vec.eye.z = 9000.0F;
@@ -2476,6 +2576,7 @@ void mnMapsInitVars(void)
 	port_enhancement_music_select_reset(); // reset hook for music selection
 	sMNMapsStageSelectTextSObj = NULL; // reset our text tracking pointers
 	sMNMapsMusicSelectTextGObj = NULL;
+	mnMapsApplyRegistryLayout(); // overlay loose-mod synth stage cells onto the grid
 #endif
 
 	sMNMapsNameLogoGObj = NULL;

@@ -89,7 +89,7 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
             root_dobj->anim_wait = AOBJ_ANIM_NULL;
             return;
         }
-        /* Parse-entry counter per synth fkind — if Crash's APPEAR figatree
+        /* Parse-entry counter per synth fkind — if a synth's APPEAR figatree
          * is stuck (no End opcode ever fires), the count keeps climbing
          * while gobj->anim_frame stays positive. Mario / NLink go through
          * gcParseDObjAnimJoint (event32) because their motions have
@@ -190,7 +190,7 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                  * anim_wait (<= 0 at this point) to its own and the gobj's
                  * anim_frame, then retire the joint (anim_wait = AOBJ_ANIM_END;
                  * the play pass converts that to AOBJ_ANIM_NULL so the guard
-                 * above skips it next tick). Async figatrees (SR appears: TopN
+                 * above skips it next tick). Async figatrees (synth appears: TopN
                  * root ends early, body joints run long) stay correct because
                  * each ended joint retires and stops writing
                  * parent_gobj->anim_frame, so the LAST still-running joint
@@ -230,7 +230,7 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
 #ifdef PORT
 #ifdef SSB64_ANIM_DEBUG
             /* APPEARDUMP one-shot: dump the real opcode stream the parser walks
-             * for Crash's match-entry APPEAR (fkind 30). Capped to the first
+             * for a synth's match-entry APPEAR (fkind 30). Capped to the first
              * ~200 lines so it captures one appear instance (~22 joints, a few
              * opcodes each) and never floods. Read-only; no parse change. */
             {
@@ -282,13 +282,13 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                         root_dobj, command_kind, flags, root_dobj->anim_joint.event16, raw16[0], raw16[1], raw16[2], raw16[3], raw16[4], raw16[5], raw16[6], raw16[7]);
                 }
 #endif
-                /* SR character figatrees use 0x8000 as a Block payload to
+                /* Custom-character figatrees use 0x8000 as a Block payload to
                  * mean "fall through to End" (sign-extends to -32768, makes
                  * anim_wait negative). The decomp's `.u` read interprets
                  * that as +32768, freezing the animation. Read as `.s` so
                  * the high bit sign-extends correctly. Mario's vanilla
                  * payloads never set bit 15, so .s == .u for him. */
-                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? (f32)AObjAnimAdvance(root_dobj->anim_joint.event16)->s : 0.0F;
+                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? AObjAnimAdvance(root_dobj->anim_joint.event16)->u : 0.0F;
 
                 for (i = 0; i < ARRAY_COUNT(track_aobjs); i++, flags = flags >> 1)
                 {
@@ -336,13 +336,13 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                         root_dobj, command_kind, flags, root_dobj->anim_joint.event16, raw16[0], raw16[1], raw16[2], raw16[3], raw16[4], raw16[5], raw16[6], raw16[7]);
                 }
 #endif
-                /* SR character figatrees use 0x8000 as a Block payload to
+                /* Custom-character figatrees use 0x8000 as a Block payload to
                  * mean "fall through to End" (sign-extends to -32768, makes
                  * anim_wait negative). The decomp's `.u` read interprets
                  * that as +32768, freezing the animation. Read as `.s` so
                  * the high bit sign-extends correctly. Mario's vanilla
                  * payloads never set bit 15, so .s == .u for him. */
-                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? (f32)AObjAnimAdvance(root_dobj->anim_joint.event16)->s : 0.0F;
+                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? AObjAnimAdvance(root_dobj->anim_joint.event16)->u : 0.0F;
 
                 for (i = 0; i < ARRAY_COUNT(track_aobjs); i++, flags = flags >> 1)
                 {
@@ -388,13 +388,13 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                         root_dobj, command_kind, flags, root_dobj->anim_joint.event16, raw16[0], raw16[1], raw16[2], raw16[3], raw16[4], raw16[5], raw16[6], raw16[7]);
                 }
 #endif
-                /* SR character figatrees use 0x8000 as a Block payload to
+                /* Custom-character figatrees use 0x8000 as a Block payload to
                  * mean "fall through to End" (sign-extends to -32768, makes
                  * anim_wait negative). The decomp's `.u` read interprets
                  * that as +32768, freezing the animation. Read as `.s` so
                  * the high bit sign-extends correctly. Mario's vanilla
                  * payloads never set bit 15, so .s == .u for him. */
-                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? (f32)AObjAnimAdvance(root_dobj->anim_joint.event16)->s : 0.0F;
+                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? AObjAnimAdvance(root_dobj->anim_joint.event16)->u : 0.0F;
 
                 for (i = 0; i < ARRAY_COUNT(track_aobjs); i++, flags = flags >> 1)
                 {
@@ -442,13 +442,13 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                 }
 #endif
 
-                /* SR character figatrees use 0x8000 as a Block payload to
+                /* Custom-character figatrees use 0x8000 as a Block payload to
                  * mean "fall through to End" (sign-extends to -32768, makes
                  * anim_wait negative). The decomp's `.u` read interprets
                  * that as +32768, freezing the animation. Read as `.s` so
                  * the high bit sign-extends correctly. Mario's vanilla
                  * payloads never set bit 15, so .s == .u for him. */
-                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? (f32)AObjAnimAdvance(root_dobj->anim_joint.event16)->s : 0.0F;
+                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? AObjAnimAdvance(root_dobj->anim_joint.event16)->u : 0.0F;
 
                 for (i = 0; i < ARRAY_COUNT(track_aobjs); i++, flags = flags >> 1)
                 {
@@ -473,7 +473,7 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
 #ifdef PORT
                     s16 _block_payload = AObjAnimAdvance(root_dobj->anim_joint.event16)->s;
                     if (_block_payload == (s16)0x8000) {
-                        /* SR figatree end-of-opcode-stream terminator. Read as a
+                        /* Custom-figatree end-of-opcode-stream terminator. Read as a
                          * signed -32768 wait it kept the do-while loop running
                          * into the out-of-line keyframe floats, decoding them as
                          * opcodes -> garbage waits -> the 256-iter watchdog
@@ -536,13 +536,13 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                         root_dobj, command_kind, flags, root_dobj->anim_joint.event16, raw16[0], raw16[1], raw16[2], raw16[3], raw16[4], raw16[5], raw16[6], raw16[7]);
                 }
 #endif
-                /* SR character figatrees use 0x8000 as a Block payload to
+                /* Custom-character figatrees use 0x8000 as a Block payload to
                  * mean "fall through to End" (sign-extends to -32768, makes
                  * anim_wait negative). The decomp's `.u` read interprets
                  * that as +32768, freezing the animation. Read as `.s` so
                  * the high bit sign-extends correctly. Mario's vanilla
                  * payloads never set bit 15, so .s == .u for him. */
-                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? (f32)AObjAnimAdvance(root_dobj->anim_joint.event16)->s : 0.0F;
+                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? AObjAnimAdvance(root_dobj->anim_joint.event16)->u : 0.0F;
 
                 for (i = 0; i < ARRAY_COUNT(track_aobjs); i++, flags = flags >> 1)
                 {
@@ -603,13 +603,13 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                 }
 #endif
 
-                /* SR character figatrees use 0x8000 as a Block payload to
+                /* Custom-character figatrees use 0x8000 as a Block payload to
                  * mean "fall through to End" (sign-extends to -32768, makes
                  * anim_wait negative). The decomp's `.u` read interprets
                  * that as +32768, freezing the animation. Read as `.s` so
                  * the high bit sign-extends correctly. Mario's vanilla
                  * payloads never set bit 15, so .s == .u for him. */
-                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? (f32)AObjAnimAdvance(root_dobj->anim_joint.event16)->s : 0.0F;
+                payload = (AObjAnimAdvance(root_dobj->anim_joint.event16)->command.toggle) ? AObjAnimAdvance(root_dobj->anim_joint.event16)->u : 0.0F;
 
                 for (i = 0; i < ARRAY_COUNT(track_aobjs); i++, flags = flags >> 1)
                 {
@@ -681,7 +681,7 @@ void ftAnimParseDObjFigatree(DObj *root_dobj)
                  * anim_wait (<= 0 at this point) to its own and the gobj's
                  * anim_frame, then retire the joint (anim_wait = AOBJ_ANIM_END;
                  * the play pass converts that to AOBJ_ANIM_NULL so the guard
-                 * above skips it next tick). Async figatrees (SR appears: TopN
+                 * above skips it next tick). Async figatrees (synth appears: TopN
                  * root ends early, body joints run long) stay correct because
                  * each ended joint retires and stops writing
                  * parent_gobj->anim_frame, so the LAST still-running joint

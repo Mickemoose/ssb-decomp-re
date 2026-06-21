@@ -417,7 +417,7 @@ void gcParseDObjAnimJoint(DObj *dobj)
      * is parsing valid opcodes but never hitting End (either looping
      * via Jump/SetAnim or the data was extracted without an End
      * sentinel). Mario should END its appear within ~60 ticks; if
-     * Crash's anim-root dobj shows e.g. 1000+ entries without an End,
+     * a custom fighter's anim-root dobj shows e.g. 1000+ entries without an End,
      * that's the smoking gun. */
     /* fp->fkind is the third u32 word of FTStruct; tap via byte offset
      * to avoid pulling ft/fighter.h into this sys-level TU. Some non-
@@ -2828,8 +2828,8 @@ void gcSetupCustomDObjs(GObj *gobj, DObjDesc *dobjdesc, DObj **dobjs, u8 tk1, u8
                 return;
             }
             if (id != 0) {
-                /* SR-extracted character effect DObjDesc arrays sometimes have
-                 * the first entry with a non-zero id (e.g. Crash USP effect),
+                /* Custom character effect DObjDesc arrays sometimes have
+                 * the first entry with a non-zero id (e.g. a custom up-special effect),
                  * which would dereference array_dobjs[id - 1] == NULL inside
                  * gcAddChildForDObj and crash the game. Skip the entry instead
                  * so the effect spawns degenerate but the game keeps running,
@@ -2855,6 +2855,27 @@ void gcSetupCustomDObjs(GObj *gobj, DObjDesc *dobjdesc, DObj **dobjs, u8 tk1, u8
 #else
         if (id != 0)
         {
+#ifdef PORT
+            /* Custom character effect DObjDesc arrays sometimes have
+             * the first entry with a non-zero id (e.g. a custom up-special effect),
+             * which would dereference array_dobjs[id - 1] == NULL inside
+             * gcAddChildForDObj and crash the game. Skip the entry instead
+             * so the effect spawns degenerate but the game keeps running,
+             * and log so we can see which effect's data is malformed. */
+            if (array_dobjs[id - 1] == NULL)
+            {
+                static s32 s_setup_dobj_null_parent_log = 0;
+                if ((s_setup_dobj_null_parent_log & 0xFF) == 0)
+                {
+                    port_log("SSB64: gcSetupCustomDObjs NULL parent dobj id=%d dobjdesc=%p gobj=%p count=%d\n",
+                        (int)id, (void *)dobjdesc, (void *)gobj,
+                        (int)s_setup_dobj_null_parent_log);
+                }
+                s_setup_dobj_null_parent_log++;
+                dobjdesc++;
+                continue;
+            }
+#endif
             dobj = array_dobjs[id] = gcAddChildForDObj(array_dobjs[id - 1], PORT_RESOLVE_GFX(dobjdesc->dl));
         }
         else dobj = array_dobjs[0] = gcAddDObjForGObj(gobj, PORT_RESOLVE_GFX(dobjdesc->dl));

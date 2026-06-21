@@ -9,6 +9,7 @@
 #ifdef PORT
 extern char *getenv(const char *name);
 extern int atoi(const char *str);
+extern int port_fighter_costume_stock_index(int fkind, int costume);
 extern float port_widescreen_clip_x_scale(void);
 #include "fighter_registry.h"
 #endif
@@ -1359,7 +1360,7 @@ void mnPlayers1PGameMakeStock(s32 stock, s32 fkind)
 				FTSprites *_spr = (FTSprites*)PORT_RESOLVE(fp->attr->sprites);
 				sobj = lbCommonMakeSObjForGObj(gobj, (Sprite*)PORT_RESOLVE(_spr->stock_sprite));
 				u32 *_luts = (u32*)PORT_RESOLVE(_spr->stock_luts);
-				sobj->sprite.LUT = _luts[fp->costume];
+				sobj->sprite.LUT = _luts[port_fighter_costume_stock_index(fp->fkind, fp->costume)];
 			}
 #else
 			sobj = lbCommonMakeSObjForGObj(gobj, fp->attr->sprites->stock_sprite);
@@ -2216,7 +2217,7 @@ void mnPlayers1PGameAnnounceFighter(s32 player, s32 slot)
 	func_800269C0_275C0(nSYAudioFGMMarioDash);
 
 #ifdef PORT
-	/* Synth fkinds OOB the 12-wide announce table. CE's AnnounceFighter hook
+	/* Synth fkinds OOB the 12-wide announce table. The character mod's AnnounceFighter hook
 	 * plays the synth announcer; this is the backstop when it isn't installed. */
 	if ((u32)sMNPlayers1PGameSlot.fkind >= ARRAY_COUNT(announce_names))
 	{

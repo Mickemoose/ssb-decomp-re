@@ -206,9 +206,9 @@ void ftMainParseMotionEvent(GObj *fighter_gobj, FTStruct *fp, FTMotionScript *ms
             attack_coll = &fp->attack_colls[attack_id];
 #ifdef PORT
             /* create_hitbox_ (0x800DF1F0): notify mods so per-hitbox
-             * override slots (SR direction/FGM state in CE) are cleared and
-             * leftover state from the previous attack with the same id
-             * doesn't bleed in. */
+             * override slots (direction/FGM state in the character mod) are
+             * cleared and leftover state from the previous attack with the
+             * same id doesn't bleed in. */
             {
                 CALL_EVENT(FighterHitboxSlotResetEvent, fp->player, attack_id);
             }
@@ -1489,6 +1489,15 @@ void ftMainProcUpdateInterrupt(GObj *fighter_gobj)
             {
                 this_fp->proc_lagend(fighter_gobj);
             }
+#ifdef PORT
+            /* FGC (fighting-game-control hitlag_step @ 0x800E16C4): when an attacker's
+               hitlag ends, open the special-cancel window for FGC-style fighters.
+               No-op for non-FGC fighters. */
+            {
+                extern void port_fgc_hitlag_end_hook(GObj * fighter_gobj);
+                port_fgc_hitlag_end_hook(fighter_gobj);
+            }
+#endif
         }
     }
     this_fp->is_events_forward = TRUE;
@@ -1498,6 +1507,17 @@ void ftMainProcUpdateInterrupt(GObj *fighter_gobj)
         ftMainPlayAnimEventsAll(fighter_gobj);
     }
     ftMainRunUpdateColAnim(fighter_gobj);
+
+#ifdef PORT
+    /* FGC (fighting-game-control tap_hold @ 0x800E1960): per-frame special-cancel
+       consumer + jab rekka + tap/hold light-attack + close/far proximity selection +
+       auto-turnaround. Runs every frame (incl. hitlag) before proc_update/proc_interrupt
+       so a cancel wins over the current action's own input handling. No-op otherwise. */
+    {
+        extern void port_fgc_proc_interrupt_hook(GObj * fighter_gobj);
+        port_fgc_proc_interrupt_hook(fighter_gobj);
+    }
+#endif
 
     if (this_fp->intangible_tics != 0)
     {
@@ -2961,8 +2981,8 @@ void ftMainProcessHitCollisionStatsMain(GObj *fighter_gobj)
         this_fp->damage_lr = (DObjGetStruct(fighter_gobj)->translate.vec.f.x < DObjGetStruct(attacker_gobj)->translate.vec.f.x) ? +1 : -1;
 
 #ifdef PORT
-        /* apply_direction_ (0x800E446C): a listener (CE) that keeps per-hitbox
-         * direction overrides derives the hitbox id from the attacker's
+        /* apply_direction_ (0x800E446C): a listener (the character mod) that keeps
+         * per-hitbox direction overrides derives the hitbox id from the attacker's
          * attack_colls and overwrites this_fp->damage_lr when its slot is set.
          * No listener = damage_lr keeps the vanilla value computed above. */
         {
@@ -4096,14 +4116,14 @@ void ftMainProcParams(GObj *fighter_gobj)
         fp->hitlag_tics = ftParamGetHitLag(damage, status_id, fp->hitlag_mul);
 
 #ifdef PORT
-        /* SR shield_hitlag_patch_ (CrashSpecial.asm:911-963, ROM 0x800E651C):
-         * lets per-fighter routines override hitlag when a shielded hit
-         * connects. Crash uses this to skip the hitlag freeze when his
-         * spin-attack is shield-blocked (NSPGBlocked / NSPABlocked) so the
-         * blocked-spin transition flows directly into the bounce-back.
+        /* shield_hitlag_patch_ (ROM 0x800E651C): lets per-fighter routines
+         * override hitlag when a shielded hit connects. A custom fighter can
+         * use this to skip the hitlag freeze when its spin-attack is
+         * shield-blocked (NSPGBlocked / NSPABlocked) so the blocked-spin
+         * transition flows directly into the bounce-back.
          * The registry hook dispatches to the per-fkind handler installed
          * by the content mod; if the handler returns nonzero, hitlag_tics
-         * goes to 0 (same as SR's `or t6, r0, r0` branch). */
+         * goes to 0 (same as the original's hitlag-zeroing branch). */
         {
             extern int port_fighter_shield_hitlag_skip(int fkind, GObj *fighter_gobj, int status_id);
             if (port_fighter_shield_hitlag_skip((int)fp->fkind, fighter_gobj, (int)fp->status_id)) {
@@ -4578,36 +4598,36 @@ void ftMainSetStatus(GObj *fighter_gobj, s32 status_id, f32 frame_begin, f32 ani
     s32 i;
 
 #ifdef PORT
-    /* SR change_action_ (0x800E6F2C) — the per-status-change reset of SR
+    /* change_action_ (0x800E6F2C) — the per-status-change reset of the
      * translation multiplier / env color override is NOT an engine hook:
-     * mods that need it (CE) install a funchook detour on ftMainSetStatus
+     * mods that need it install a funchook detour on ftMainSetStatus
      * via mod_install_hook, reset their own state, and call the original. */
 
-    /* SR dig_ecb_patch_ (0x800E6F4C, CrashSpecial.asm:2152-2194): resize
-     * the fighter's ECB diamond per the new action. SR's patch hard-codes
-     * Crash + DSP-action shrinking; the registry hook generalizes that so
+    /* dig_ecb_patch_ (0x800E6F4C): resize the fighter's ECB diamond per the
+     * new action. The original patch hard-coded a specific fighter and its
+     * down-special action shrinking; the registry hook generalizes that so
      * any fighter can register its own action-keyed ECB profile. The
      * handler receives the next status_id and writes new map_coll.top /
      * .center values; returning 0 leaves the engine's defaults. */
     if (fp->attr != NULL)
     {
-        extern int port_fighter_ecb_override(int fkind, FTStruct *fp, int next_status_id,
+        extern int port_fighter_ecb_override(FTStruct *fp, int next_status_id,
                                              float *out_upper, float *out_middle);
         float new_upper = 0.0F, new_middle = 0.0F;
-        if (port_fighter_ecb_override(fp->fkind, fp, status_id, &new_upper, &new_middle))
+        if (port_fighter_ecb_override(fp, status_id, &new_upper, &new_middle))
         {
             fp->attr->map_coll.top    = new_upper;
             fp->attr->map_coll.center = new_middle;
         }
     }
 
-    /* SR change_action_ extras (CrashSpecial.asm: training-mode action
-     * frame reset, Item.respawn_with_item_). Training-mode is a separate
-     * SR engine subsystem that hasn't been ported; respawn_with_item is
-     * SR's item-respawn loop. Both fire from the same change_action_ patch
-     * site in SR but the port has no equivalent target to drive. They are
-     * left unimplemented here because the SR systems they depend on are
-     * not present in the BattleShip port. */
+    /* change_action_ extras (training-mode action frame reset,
+     * item respawn_with_item_). Training-mode is a separate engine
+     * subsystem that hasn't been ported; respawn_with_item is an
+     * item-respawn loop. Both fire from the same change_action_ patch
+     * site upstream but the port has no equivalent target to drive. They
+     * are left unimplemented here because the subsystems they depend on
+     * are not present in this port. */
 #endif
 
     status_struct = NULL;
@@ -4789,7 +4809,7 @@ void ftMainSetStatus(GObj *fighter_gobj, s32 status_id, f32 frame_begin, f32 ani
     else if (status_id >= nFTCommonStatusSpecialStart)
     {
 #ifdef PORT
-        /* When a synth fighter (Crash etc.) performs its OWN special, the action
+        /* When a synth fighter performs its OWN special, the action
          * status descriptor lives in the synth's table, not the common one. The
          * transient scope (published by ftKirbySpecialNSetStatusSelect around the
          * copied-special handler) and the host's persistent copy_id both name the
@@ -4797,7 +4817,7 @@ void ftMainSetStatus(GObj *fighter_gobj, s32 status_id, f32 frame_begin, f32 ani
          * from the synth's own routines after the scope clears use the copy_id.
          *
          * Kirby's copied-special status ids live in Kirby's OWN grown special
-         * table (KirbyHatEngine appends them past the vanilla Kirby range), so
+         * table (the Kirby-copy mod appends them past the vanilla Kirby range), so
          * when Kirby is the actor and the requested status indexes inside that
          * table, resolve through Kirby's descriptor -- not the synth's. */
         s32 special_fkind = port_kirby_get_copy_special_fkind();
@@ -4889,7 +4909,7 @@ void ftMainSetStatus(GObj *fighter_gobj, s32 status_id, f32 frame_begin, f32 ani
         {
             anim_desc_bak =
             fp->anim_desc.word & ~(FTANIM_FLAG_SUBMOTION_SCRIPT | FTANIM_FLAG_ANIMJOINT | FTANIM_FLAG_TRANSLATE_SCALES | FTANIM_FLAG_SHIELDPOSE | FTANIM_FLAG_ANIMLOCKS);
-            
+
             fp->anim_desc.word = motion_desc->anim_desc.word;
 
             anim_desc_update =
@@ -4961,9 +4981,9 @@ void ftMainSetStatus(GObj *fighter_gobj, s32 status_id, f32 frame_begin, f32 ani
 
 #ifdef PORT
                 /* Synth fkinds whose skeleton lacks the XRotN joint
-                 * (Crash uses Mario's commonparts which omits XRotN at
-                 * the Crash-required slot) get NULL here. Skipping the
-                 * reset is safe; the animation just won't have a hinge
+                 * (e.g. a synth borrowing Mario's commonparts, which omits
+                 * XRotN at the slot the synth needs) get NULL here. Skipping
+                 * the reset is safe; the animation just won't have a hinge
                  * to rotate, which is the desired fallback. */
                 if (joint != NULL) {
 #endif

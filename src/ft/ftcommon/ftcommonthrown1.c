@@ -1,5 +1,9 @@
 #include <ft/fighter.h>
 
+#ifdef PORT
+#include "fighter_registry.h"
+#endif
+
 // // // // // // // // // // // //
 //                               //
 //           FUNCTIONS           //
@@ -15,11 +19,18 @@ void ftCommonThrownProcUpdate(GObj *fighter_gobj)
     {
         FTStruct *capture_fp = ftGetStruct(this_fp->capture_gobj);
 
-        if 
+        if
         (
             (capture_fp->fkind != nFTKindDonkey)                      &&
             (capture_fp->fkind != nFTKindNDonkey)                     &&
+#ifdef PORT
+            (capture_fp->fkind != nFTKindGDonkey)                     &&
+            /* cargo-hold fix (victim mirror): a captive grabbed by a synth's
+             * cargo grab stays in the carry instead of re-transitioning out. */
+            (port_fighter_is_cargo_grabber(capture_fp->fkind) == 0)   ||
+#else
             (capture_fp->fkind != nFTKindGDonkey)                     ||
+#endif
             (capture_fp->status_id != nFTCommonStatusThrowF)
         )
         {

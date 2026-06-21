@@ -12,8 +12,9 @@ extern void func_800266A0_272A0(void);
 extern void* func_800269C0_275C0(u16);
 
 #ifdef PORT
-extern float port_widescreen_clip_x_scale(void);
 #include "fighter_registry.h"
+extern int port_fighter_costume_stock_index(int fkind, int costume);
+extern float port_widescreen_clip_x_scale(void);
 #endif
 
 // // // // // // // // // // // //
@@ -690,7 +691,7 @@ void mnVSResultsMakeEmblem(void)
 		color = colors[mnVSResultsGetWinTeam()];
 	}
 #ifdef PORT
-	/* Synth fkinds OOB the 12-entry vanilla tables above. CharacterEngine
+	/* Synth fkinds OOB the 12-entry vanilla tables above. The character mod
 	 * registers each synth's series-logo models into a grown FTEmblemModels
 	 * blob and publishes the resolved DObjDesc/MObjSub/MatAnimJoint pointers
 	 * through port_fighter_results_emblem. Build the spinning emblem from
@@ -1059,12 +1060,12 @@ void mnVSResultsMakeFighter(s32 player)
 	 * Kirby copy state (vanilla just clones the default desc). Two x64 hazards
 	 * would otherwise put a stale copy hat on a Kirby winner: the default
 	 * desc.copy_kind isn't sane on x64 (see mvopeningroom.c), and the per-player
-	 * synth pending hat (set when Kirby swallowed a synth like Crash) persists
+	 * synth pending hat (set when Kirby swallowed a custom fighter) persists
 	 * past match end. The synth hat's model blob is only loaded in the match
 	 * scene, so re-applying it here AVs in GfxSpVertex. Force a plain Kirby. */
 	desc.copy_kind = nFTKindKirby;
 	port_kirby_set_pending_hat(player, 0);
-	/* Carry the real controller port so CE's alt-model swap (Classic Sonic etc.)
+	/* Carry the real controller port so the character mod's alt-model swap
 	 * keys on the winner's per-port flag and the podium model matches the CSS
 	 * choice. Vanilla never reads desc.player at results, so this is inert there. */
 	desc.player = player;
@@ -2005,7 +2006,7 @@ void mnVSResultsMakeHeader(void)
 				FTSprites *_spr = (FTSprites*)PORT_RESOLVE(fp->attr->sprites);
 				stock_sobj = lbCommonMakeSObjForGObj(gobj, (Sprite*)PORT_RESOLVE(_spr->stock_sprite));
 				u32 *_luts = (u32*)PORT_RESOLVE(_spr->stock_luts);
-				stock_sobj->sprite.LUT = _luts[fp->costume];
+				stock_sobj->sprite.LUT = _luts[port_fighter_costume_stock_index(fp->fkind, fp->costume)];
 			}
 #else
 			stock_sobj = lbCommonMakeSObjForGObj(gobj, fp->attr->sprites->stock_sprite);

@@ -1,6 +1,7 @@
 #include <ft/fighter.h>
 
 #ifdef PORT
+#include "fighter_registry.h"
 extern void port_log(const char *fmt, ...);
 #endif
 
@@ -55,7 +56,11 @@ void ftCommonThrowProcUpdate(GObj *fighter_gobj)
     }
     if (fighter_gobj->anim_frame <= 0.0F)
     {
-        if ((fp->fkind == nFTKindDonkey) || (fp->fkind == nFTKindNDonkey) || (fp->fkind == nFTKindGDonkey))
+        if ((fp->fkind == nFTKindDonkey) || (fp->fkind == nFTKindNDonkey) || (fp->fkind == nFTKindGDonkey)
+#ifdef PORT
+            || port_fighter_is_cargo_grabber(fp->fkind)   /* cargo-hold fix: a synth's normal grab -> Cargo */
+#endif
+            )
         {
             if (fp->status_id == nFTCommonStatusThrowF)
             {
@@ -83,7 +88,7 @@ void ftCommonThrowSetStatus(GObj *fighter_gobj, sb32 is_throwf)
 
 #ifdef PORT
     /* The thrower's thrown_status[] table is indexed by the VICTIM's fkind but
-     * sized for vanilla fkinds only; a synth victim (Crash/Banjo, fkind past
+     * sized for vanilla fkinds only; a synth victim (fkind past
      * nFTKindEnumCount) reads OOB -> garbage thrown status -> bad figatree ->
      * crash when thrown. Clamp a synth victim to a normal vanilla index: a
      * normal victim's thrown reaction is the COMMON thrown statuses, which the

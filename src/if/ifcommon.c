@@ -22,6 +22,7 @@ extern void portFixupSprite(void *sprite);
 extern void portFixupBitmapArray(void *bitmaps, unsigned int count);
 extern void portFixupSpriteBitmapData(void *sprite, void *bitmaps);
 extern void portFixupRawTextureBSWAP32(void *base, size_t bytes);
+extern int port_fighter_costume_stock_index(int fkind, int costume);
 extern float port_widescreen_clip_x_scale(void);
 
 /* Ensure a Sprite* read from reloc file data has its header, bitmap
@@ -1101,7 +1102,7 @@ void ifCommonPlayerStockMultiProcDisplay(GObj *interface_gobj)
                             FTSprites *_spr = (FTSprites*)PORT_RESOLVE(fp->attr->sprites);
                             lt_sobj->sprite = *(Sprite*)PORT_RESOLVE(_spr->stock_sprite);
                             u32 *_luts = (u32*)PORT_RESOLVE(_spr->stock_luts);
-                            lt_sobj->sprite.LUT = _luts[fp->costume];
+                            lt_sobj->sprite.LUT = _luts[port_fighter_costume_stock_index(fp->fkind, fp->costume)];
                         }
 #else
                         lt_sobj->sprite = *fp->attr->sprites->stock_sprite;
@@ -1134,7 +1135,7 @@ void ifCommonPlayerStockMultiProcDisplay(GObj *interface_gobj)
                     FTSprites *_spr = (FTSprites*)PORT_RESOLVE(fp->attr->sprites);
                     gt_sobj->sprite = *(Sprite*)PORT_RESOLVE(_spr->stock_sprite);
                     u32 *_luts = (u32*)PORT_RESOLVE(_spr->stock_luts);
-                    gt_sobj->sprite.LUT = _luts[fp->costume];
+                    gt_sobj->sprite.LUT = _luts[port_fighter_costume_stock_index(fp->fkind, fp->costume)];
                 }
 #else
                 gt_sobj->sprite = *fp->attr->sprites->stock_sprite;
@@ -1258,7 +1259,7 @@ void ifCommonPlayerStockSetLUT(s32 player, s32 lut_id, FTAttributes *attr)
     {
         FTSprites *_spr = (FTSprites*)PORT_RESOLVE(attr->sprites);
         u32 *_luts = (u32*)PORT_RESOLVE(_spr->stock_luts);
-        SObjGetStruct(sIFCommonPlayerStocksGObj[player])->sprite.LUT = _luts[lut_id];
+        SObjGetStruct(sIFCommonPlayerStocksGObj[player])->sprite.LUT = _luts[port_fighter_costume_stock_index(gSCManagerBattleState->players[player].fkind, lut_id)];
     }
 #else
     SObjGetStruct(sIFCommonPlayerStocksGObj[player])->sprite.LUT = attr->sprites->stock_luts[lut_id];
@@ -1294,7 +1295,7 @@ void ifCommonPlayerStockSingleMakeInterface(s32 player)
 #ifdef PORT
         {
             u32 *_luts = (u32*)PORT_RESOLVE(_spr->stock_luts);
-            sobj->sprite.LUT = _luts[fp->costume];
+            sobj->sprite.LUT = _luts[port_fighter_costume_stock_index(fp->fkind, fp->costume)];
         }
 #else
         sobj->sprite.LUT = fp->attr->sprites->stock_luts[fp->costume];
@@ -1386,7 +1387,7 @@ void ifCommonPlayerStockStealMakeInterface(s32 thief, s32 stolen)
             {
                 FTSprites *_spr = (FTSprites*)PORT_RESOLVE(fp->attr->sprites);
                 u32 *_luts = (u32*)PORT_RESOLVE(_spr->stock_luts);
-                sobj->sprite.LUT = _luts[fp->costume];
+                sobj->sprite.LUT = _luts[port_fighter_costume_stock_index(fp->fkind, fp->costume)];
             }
 #else
             sobj->sprite.LUT = fp->attr->sprites->stock_luts[fp->costume];
